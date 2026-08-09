@@ -1,0 +1,17 @@
+{
+  "domain": "ecovacs_live",
+  "name": "ECOVACS Live View",
+  "version": "0.8.0",
+  "config_flow": true,
+  "integration_type": "device",
+  "requirements": [
+    "deebot-client==18.4.0",
+    "aiortc==1.15.0",
+    "websockets==15.0.1"
+  ],
+  "codeowners": [
+    "@imcdo17-cyber"
+  ],
+  "documentation": "https://github.com/imcdo17-cyber/home-assistant-ecovacs-live",
+  "issue_tracker": "https://github.com/imcdo17-cyber/home-assistant-ecovacs-live/issues"
+}
