@@ -1,49 +1,47 @@
 {
-  "title": "ECOVACS Live View",
   "config": {
     "step": {
       "user": {
-        "title": "Connect your ECOVACS account",
-        "description": "Enter your ECOVACS account details. ECOVACS email verification will be requested automatically when required.",
+        "title": "ECOVACS Live View",
+        "description": "Connect to your ECOVACS account for robot Live View.",
         "data": {
-          "account": "Email / account",
+          "account": "ECOVACS account",
           "password": "Password",
           "country": "Country code",
           "live_view_pin": "Live View PIN"
         }
       },
       "verify": {
-        "title": "Verify ECOVACS login",
-        "description": "ECOVACS sent a verification code to {account}. Enter the code below.",
+        "title": "Verify ECOVACS account",
+        "description": "Enter the verification code sent for {account}.",
         "data": {
-          "verification_code": "Email verification code"
+          "verification_code": "Verification code"
         }
       }
     },
     "error": {
-      "invalid_country": "Enter a two-letter country code, for example AU.",
-      "invalid_pin": "The Live View PIN cannot be blank.",
-      "invalid_auth": "ECOVACS rejected the email or password.",
+      "invalid_country": "Enter a two-letter country code.",
+      "invalid_pin": "Enter your ECOVACS Live View PIN.",
+      "verification_request_failed": "Could not request an ECOVACS verification code.",
+      "invalid_auth": "Invalid ECOVACS account or password.",
       "auth_error": "ECOVACS authentication failed.",
       "cannot_connect": "Could not connect to ECOVACS.",
-      "verification_request_failed": "Could not request the ECOVACS email verification code.",
-      "invalid_verification_code": "The verification code is invalid or expired.",
-      "verification_failed": "ECOVACS device verification failed."
+      "invalid_verification_code": "The verification code is invalid.",
+      "verification_failed": "ECOVACS verification failed."
     },
     "abort": {
       "already_configured": "This ECOVACS account is already configured.",
       "verification_session_lost": "The verification session was lost. Start setup again.",
       "auth_session_lost": "The authentication session was lost. Start setup again.",
-      "device_query_failed": "Login succeeded, but ECOVACS robot discovery failed."
+      "device_query_failed": "No usable ECOVACS robots could be discovered."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "ECOVACS Live View options",
-        "description": "Set automatic stream cleanup. Use 0 to disable automatic stopping.",
         "data": {
-          "auto_stop_minutes": "Automatically stop Live View after (minutes)"
+          "auto_stop_minutes": "Automatically stop Live View after (minutes, 0 disables)"
         }
       }
     }

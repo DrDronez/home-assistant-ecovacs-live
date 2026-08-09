@@ -44,6 +44,14 @@ REALM = "ecouser.net"
 BOOTSTRAP_APP_HOST = "api-app.ww.ecouser.net"
 
 
+def _frame_to_jpeg(frame: Any) -> bytes:
+    """Convert one decoded AV frame to JPEG outside the HA event loop."""
+    image = frame.to_image()
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG", quality=82)
+    return buffer.getvalue()
+
+
 @dataclass(frozen=True)
 class KinesisSession:
     region: str
@@ -892,29 +900,9 @@ def _prefer_h264(transceiver: Any) -> None:
 class EcovacsLiveViewSession:
     """One live-view WebRTC session for a discovered robot."""
 
-    # Valid Opus payloads captured from the successful Android session.
-    _OPUS = (
-        bytes.fromhex(
-            "78 0b e4 c1 22 23 61 f9 8c 39 6a 99 04 c5 aa ed "
-            "92 e7 63 4a 3a 18 98 ee 62 cb 60 ff 6c 1b 29 00"
-        ),
-        bytes.fromhex(
-            "78 07 c9 79 c5 12 f7 bc ac 83 79 dc 79 60 07 e6 "
-            "a3 5a a5 7f c8 c7 69 6d 63 d5 c3 b5 88 83 cd 83 cd 00"
-        ),
-        bytes.fromhex(
-            "78 07 c9 79 c5 12 f7 bc ac 83 79 fa ef 67 f3 2e "
-            "e3 d3 d5 e9 ec db 40 0f a0 b6 55 2a b7 8c 83 cd 83 cd 00"
-        ),
-        bytes.fromhex(
-            "78 07 c9 72 27 e1 3e 53 08 e8 fc 0f d6 27 17 b5 "
-            "b0 29 ec a1 5f d5 e4 ff 98 00 b6 6e 2a b7 8c cd 83 cd 83 00"
-        ),
-        bytes.fromhex(
-            "78 07 c9 79 c5 12 f7 bc ac 83 79 fa ef 67 f3 2e "
-            "e3 d3 d5 e9 ec db 3e bc 80 b6 6e 2a b7 8c 83 cd 83 cd 00"
-        ),
-    )
+    # Synthetic Opus silence payload used only to keep the sendrecv audio
+    # transceiver active. It contains no user/session media.
+    _OPUS_SILENCE = b"\xF8\xFF\xFE"
 
     def __init__(
         self,
@@ -940,7 +928,6 @@ class EcovacsLiveViewSession:
         self.error: str | None = None
         self._media_tasks: list[asyncio.Task[Any]] = []
         self._receive_task: asyncio.Task[Any] | None = None
-        self._opus_index = 0
         self._opus_count = 0
         self._wrapped: set[int] = set()
         self._cname = uuid.uuid4().hex[:16]
@@ -979,10 +966,7 @@ class EcovacsLiveViewSession:
                 and (raw[1] & 0x7F) == 111
                 and not (192 <= raw[1] <= 223)
             ):
-                payload = viewer._OPUS[
-                    viewer._opus_index % len(viewer._OPUS)
-                ]
-                viewer._opus_index += 1
+                payload = viewer._OPUS_SILENCE
                 viewer._opus_count += 1
                 header = bytearray(raw[:12])
                 header[0] = 0x80
@@ -1007,10 +991,9 @@ class EcovacsLiveViewSession:
                 now = time.monotonic()
                 if now - self._last_jpeg_monotonic >= 0.2:
                     try:
-                        image = frame.to_image()
-                        buffer = BytesIO()
-                        image.save(buffer, format="JPEG", quality=82)
-                        self.latest_jpeg = buffer.getvalue()
+                        self.latest_jpeg = await self.hass.async_add_executor_job(
+                            _frame_to_jpeg, frame
+                        )
                         self.latest_jpeg_sequence += 1
                         self._last_jpeg_monotonic = now
                     except Exception:
@@ -1020,7 +1003,7 @@ class EcovacsLiveViewSession:
 
                 if self.video_frames == 1:
                     self.status = "video_received"
-                    _LOGGER.warning(
+                    _LOGGER.debug(
                         "ECOVACS WebRTC first video frame received"
                     )
                     self.first_frame_event.set()
@@ -1080,7 +1063,7 @@ class EcovacsLiveViewSession:
         ).upper()
         encoded = str(message.get("messagePayload") or "")
 
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC signaling message received: kind=%s encoded_len=%d",
             kind or "<unknown>",
             len(encoded),
@@ -1102,7 +1085,7 @@ class EcovacsLiveViewSession:
                 return
             answer = json.loads(payload)
             answer_sdp = str(answer["sdp"])
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "ECOVACS WebRTC SDP answer received: type=%s sdp_len=%d",
                 str(answer.get("type", "answer")),
                 len(answer_sdp),
@@ -1113,7 +1096,7 @@ class EcovacsLiveViewSession:
                     type=str(answer.get("type", "answer")),
                 )
             )
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "ECOVACS WebRTC remote description applied: signaling_state=%s "
                 "ice_state=%s connection_state=%s",
                 self.pc.signalingState,
@@ -1121,7 +1104,7 @@ class EcovacsLiveViewSession:
                 self.pc.connectionState,
             )
         elif kind == "ICE_CANDIDATE":
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "ECOVACS WebRTC remote ICE_CANDIDATE received (currently diagnostic only): "
                 "payload_len=%d",
                 len(payload),
@@ -1138,23 +1121,23 @@ class EcovacsLiveViewSession:
             for entry_id, runtime in self.hass.data["ecovacs_live"].items()
             if self.robot in runtime.get("devices", [])
         )]["manager"].http
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: describing Kinesis signaling channel"
         )
         arn = await _describe_channel(http, self.session_info)
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: channel described; requesting signaling endpoints"
         )
         wss_endpoint, https_endpoint = await _endpoints(
             http, self.session_info, arn
         )
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: signaling endpoints received; requesting ICE servers"
         )
         ice_servers = await _ice_servers(
             http, self.session_info, arn, https_endpoint
         )
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: ICE configuration ready; server_count=%d",
             len(ice_servers),
         )
@@ -1174,7 +1157,7 @@ class EcovacsLiveViewSession:
 
         @self.pc.on("track")
         def _on_track(track: Any) -> None:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "ECOVACS WebRTC remote track received: kind=%s",
                 track.kind,
             )
@@ -1191,7 +1174,7 @@ class EcovacsLiveViewSession:
         async def _connection_state() -> None:
             if self.pc is None:
                 return
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "ECOVACS WebRTC connection state changed: %s",
                 self.pc.connectionState,
             )
@@ -1206,7 +1189,7 @@ class EcovacsLiveViewSession:
         @self.pc.on("iceconnectionstatechange")
         async def _ice_connection_state() -> None:
             if self.pc is not None:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "ECOVACS WebRTC ICE connection state changed: %s",
                     self.pc.iceConnectionState,
                 )
@@ -1214,7 +1197,7 @@ class EcovacsLiveViewSession:
         @self.pc.on("icegatheringstatechange")
         async def _ice_gathering_state() -> None:
             if self.pc is not None:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "ECOVACS WebRTC ICE gathering state changed: %s",
                     self.pc.iceGatheringState,
                 )
@@ -1222,7 +1205,7 @@ class EcovacsLiveViewSession:
         @self.pc.on("signalingstatechange")
         async def _signaling_state() -> None:
             if self.pc is not None:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "ECOVACS WebRTC signaling state changed: %s",
                     self.pc.signalingState,
                 )
@@ -1232,7 +1215,7 @@ class EcovacsLiveViewSession:
             arn,
             wss_endpoint,
         )
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: connecting Kinesis signaling WebSocket"
         )
         self.websocket = await websockets.connect(
@@ -1242,22 +1225,22 @@ class EcovacsLiveViewSession:
             close_timeout=10,
             max_size=8 * 1024 * 1024,
         )
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: Kinesis signaling WebSocket connected"
         )
 
-        _LOGGER.warning("ECOVACS WebRTC stage: creating SDP offer")
+        _LOGGER.debug("ECOVACS WebRTC stage: creating SDP offer")
         offer = await self.pc.createOffer()
         offer = RTCSessionDescription(
             sdp=_rewrite_offer(offer.sdp),
             type=offer.type,
         )
         await self.pc.setLocalDescription(offer)
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: local SDP applied; gathering ICE"
         )
         await _wait_ice(self.pc)
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: ICE gathering complete"
         )
 
@@ -1276,7 +1259,7 @@ class EcovacsLiveViewSession:
             {"type": local.type, "sdp": trickle_sdp},
             separators=(",", ":"),
         )
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: sending SDP offer; sdp_len=%d candidate_count=%d",
             len(trickle_sdp),
             len(candidates),
@@ -1288,7 +1271,7 @@ class EcovacsLiveViewSession:
                 correlation_id=str(uuid.uuid4()),
             )
         )
-        _LOGGER.warning("ECOVACS WebRTC stage: SDP offer sent")
+        _LOGGER.debug("ECOVACS WebRTC stage: SDP offer sent")
 
         sent: set[tuple[str, int, str]] = set()
         for mid, index, candidate in candidates:
@@ -1303,13 +1286,13 @@ class EcovacsLiveViewSession:
                 )
             )
 
-        _LOGGER.warning(
+        _LOGGER.debug(
             "ECOVACS WebRTC stage: sent %d unique local ICE candidates",
             len(sent),
         )
 
         async def _receive() -> None:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "ECOVACS WebRTC signaling receive loop started"
             )
             try:
@@ -1568,9 +1551,7 @@ class LiveViewManager:
             self._notify()
             return success
         except Exception as exc:
-            _LOGGER.exception(
-                "ECOVACS Live View start failed for robot %s", did
-            )
+            _LOGGER.exception("ECOVACS Live View start failed")
             self._cancel_auto_stop(did)
             self.started_monotonic.pop(did, None)
             failed = self.sessions.pop(did, None)
