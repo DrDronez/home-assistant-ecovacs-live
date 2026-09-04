@@ -1,21 +1,49 @@
-# ECOVACS Live View 0.8.3
+# ECOVACS Live View for Home Assistant
 
-Custom Home Assistant integration providing ECOVACS robot Live View using the ECOVACS/Kinesis WebRTC path.
+[![HACS validation](https://github.com/imcdo17-cyber/home-assistant-ecovacs-live/actions/workflows/validate.yml/badge.svg)](https://github.com/imcdo17-cyber/home-assistant-ecovacs-live/actions/workflows/validate.yml)
+[![Hassfest](https://github.com/imcdo17-cyber/home-assistant-ecovacs-live/actions/workflows/hassfest.yml/badge.svg)](https://github.com/imcdo17-cyber/home-assistant-ecovacs-live/actions/workflows/hassfest.yml)
 
-## 0.8.3 performance fix
+Unofficial Home Assistant custom integration that adds ECOVACS robot Live View
+camera support using the ECOVACS Kinesis/WebRTC flow.
 
-This release fixes a Home Assistant performance problem that could occur when the **Live view camera entity was enabled but the ECOVACS video session was idle**.
+## Status
 
-The previous MJPEG handler ended the HTTP response immediately whenever Live View was not running. Camera clients could interpret the immediate end-of-stream as a failure and reconnect repeatedly. Version 0.8.3 keeps the MJPEG client connection stable while idle and only performs low-frequency keepalive work until Live View starts.
+**Tested with:** ECOVACS DEEBOT T90 OMNI
 
-Additional changes:
+This project uses private/undocumented ECOVACS APIs and may stop working if
+ECOVACS changes its application or backend services.
 
-- Routine WebRTC/ICE/signalling telemetry is logged at `DEBUG` rather than `WARNING`.
-- JPEG encoding for active Live View is moved to Home Assistant's executor so image encoding does not block the HA event loop.
-- Camera and status entities explicitly do not poll.
-- Integration version bumped to `0.8.3`.
+## Features
+
+- ECOVACS account login through Home Assistant config flow
+- Automatic robot discovery using `GetGlobalDeviceList`
+- No hardcoded robot DID, class, resource or serial number required
+- Live View PIN verification
+- AWS Kinesis/WebRTC video session
+- Home Assistant camera entity
+- MJPEG dashboard stream
+- Start Live View button
+- Stop Live View button
+- Live View status sensor
+- Configurable automatic stream shutdown (default: 10 minutes)
+- Automatic cleanup of failed/timed-out video sessions
+- Safe migration/cleanup of stale `ecovacs_live` device-registry records
 
 ## Installation
+
+### HACS custom repository
+
+Until this integration is accepted into the default HACS catalogue:
+
+1. Open **HACS** in Home Assistant.
+2. Open the menu and choose **Custom repositories**.
+3. Add:
+   `https://github.com/imcdo17-cyber/home-assistant-ecovacs-live`
+4. Select **Integration** as the category.
+5. Install **ECOVACS Live View**.
+6. Restart Home Assistant.
+
+### Manual installation
 
 Copy:
 
@@ -23,20 +51,79 @@ Copy:
 custom_components/ecovacs_live/
 ```
 
-into:
+to:
 
 ```text
 /config/custom_components/ecovacs_live/
 ```
 
-Then restart Home Assistant or reload the custom integration after replacing the files.
+or, on Home Assistant OS when using the Terminal & SSH add-on:
 
-For an existing installation, the config entry and entity IDs are retained.
+```text
+/homeassistant/custom_components/ecovacs_live/
+```
 
-## Testing 0.8.3
+Restart Home Assistant, then go to:
 
-1. Enable the `Live view` camera entity.
-2. Leave the Live View status at `idle`; do **not** press Start.
-3. Confirm Home Assistant remains responsive.
-4. Press `Start live view` and confirm video starts.
-5. Press `Stop live view` and confirm the camera returns to idle without slowing Home Assistant.
+**Settings → Devices & services → Add integration → ECOVACS Live View**
+
+You will be asked for:
+
+- ECOVACS account/email
+- ECOVACS password
+- two-letter country code
+- robot Live View PIN
+
+If ECOVACS requires device verification, the integration will prompt for the
+email verification code.
+
+## Using Live View
+
+1. Press **Start live view**.
+2. Wait for the Live View status to report `video_received`.
+3. Open the **Live view** camera entity or add it to a dashboard.
+4. Press **Stop live view** when finished.
+
+The integration can automatically stop an active session. The default is
+10 minutes. Change it under the integration's **Configure**/Options screen.
+Set the value to `0` to disable automatic stopping.
+
+## Privacy and security
+
+The source code contains **no user-specific robot identifiers, account details,
+camera PINs, ECOVACS tokens, AWS credentials, local IP addresses, or device
+serial numbers**.
+
+At runtime, your ECOVACS account credentials and Live View PIN are stored in
+Home Assistant's config-entry storage in the same way other credential-based
+custom integrations store their configuration.
+
+Temporary ECOVACS/AWS credentials are held in memory only for the active
+session by this integration and are not intentionally written to its logs.
+
+**Do not publish Home Assistant debug logs without reviewing/redacting them.**
+Third-party libraries such as `deebot-client` can produce very verbose debug
+output, and service responses may contain temporary credentials.
+
+## Known scope
+
+This release focuses on Live View. It does not attempt to replace the normal
+Home Assistant Ecovacs integration for vacuum controls, maps, consumables or
+cleaning sensors.
+
+## Disclaimer
+
+This is an independent community project and is not affiliated with, endorsed
+by, or supported by ECOVACS.
+
+Use at your own risk. Live View involves a camera inside your home, so review
+the code and your Home Assistant security configuration before use.
+
+## Support
+
+Please use the GitHub issue tracker for bugs:
+
+https://github.com/imcdo17-cyber/home-assistant-ecovacs-live/issues
+
+Before posting logs, read `SECURITY.md` and remove all account/device identifiers
+and temporary credentials.

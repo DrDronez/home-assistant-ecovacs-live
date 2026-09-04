@@ -1,16 +1,22 @@
 # Changelog
 
-## 0.8.3
-
-- Fix idle camera snapshot requests returning no image.
-- Always return a valid tiny JPEG from `async_camera_image()` when Live View has not been started and no cached frame exists.
-- Prevent Home Assistant camera proxy/entity-picture requests from failing while the camera is idle.
-- Retain the 0.8.2 stable idle MJPEG connection and WebRTC performance/logging improvements.
-
 ## 0.8.2
 
-- Fixed idle camera MJPEG request churn that could make Home Assistant slow while Live View was enabled but not started.
-- Keep idle MJPEG connections open with inexpensive periodic keepalive frames.
-- Moved active-frame JPEG encoding off the Home Assistant event loop.
-- Reduced normal WebRTC negotiation/state logging from warning to debug level.
-- Added explicit non-polling behavior for camera/status entities.
+Compatibility fix.
+
+- Updated `deebot-client` from 18.4.0 to 18.5.1.
+- Fixes Home Assistant config-flow failure:
+  `cannot import name 'DeviceVerificationRequiredError'`.
+- Keeps all Live View behavior from 0.8.1 unchanged.
+
+## 0.8.1
+
+Privacy/security hardening release.
+
+- Removed Opus audio payloads copied from development traffic.
+- Replaced them with synthetic Opus silence.
+- Removed robot DID values from ECOVACS Live View log messages.
+- Re-audited the repository for hardcoded account/device/session data.
+- No intended feature changes.
+
+Tested successfully on an ECOVACS DEEBOT T90 OMNI.
