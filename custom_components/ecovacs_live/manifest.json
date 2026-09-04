@@ -5,7 +5,7 @@
   "config_flow": true,
   "integration_type": "device",
   "requirements": [
-    "deebot-client==18.4.0",
+    "deebot-client>=18.5.1,<21",
     "aiortc==1.15.0",
     "websockets==15.0.1"
   ],
