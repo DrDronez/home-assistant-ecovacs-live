@@ -1,7 +1,7 @@
 # Home Assistant 2026.10 / PyAV 19 test build
 
 This branch is an experimental Live View compatibility build for Home Assistant
-2026.10.0. It has not been tested with a real mower or a Home Assistant instance.
+2026.10.0.
 
 ## Install for testing
 
@@ -33,5 +33,10 @@ Source: https://pypi.org/project/aiortc/1.15.0/ (wheel SHA-256
 `4e1e54bff31a9c2cb654c7b7edc068085a7df53365e5df24a5cb24168e3f95f7`).
 
 Local smoke checks on Python 3.14 with PyAV 19.0.0 passed package import,
-peer connection construction, and VP8/H.264 frame encoding. These checks do
-not prove that the ECOVACS WebRTC session or video decoding works.
+peer connection construction, and VP8/H.264 frame encoding.
+
+On October 8, 2026, the branch was installed through HACS on Home Assistant
+2026.10.0 and tested with a GOAT O1000 LiDAR Pro. The integration loaded, the
+session reached `video_received`, and the camera preview displayed a frame.
+The stream was then stopped and returned to idle. The test was performed at
+night, so image quality in daylight and longer sessions remain unverified.
