@@ -40,3 +40,22 @@ On October 8, 2026, the branch was installed through HACS on Home Assistant
 session reached `video_received`, and the camera preview displayed a frame.
 The stream was then stopped and returned to idle. The test was performed at
 night, so image quality in daylight and longer sessions remain unverified.
+
+## Current test state and later return to main
+
+- The local checkout and fork's test build are on
+  `codex/av19-live-view-test`. Keep this branch selected until the test is over.
+- Home Assistant's HACS entry for the fork has
+  `codex/av19-live-view-test` installed. The original upstream HACS entry is
+  still registered separately. The Live View session was stopped after the
+  successful test.
+- HACS may offer to update the fork to its default `main` commit. Do not take
+  that update while testing: the current `main` still has the aiortc/PyAV
+  conflict on Home Assistant 2026.10.
+- Checking out `main` in the local Git repository does not change the files
+  installed in Home Assistant. When an updated `main` supports PyAV 19, use
+  HACS to install that version, restart Home Assistant, and verify the
+  integration before removing the fork's custom repository entry.
+- To return this checkout to the fork's main branch later, fetch `origin/main`
+  and switch to it. Preserve this test branch as a recovery point until the
+  replacement has passed the same Live View test.
