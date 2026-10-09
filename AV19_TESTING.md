@@ -1,6 +1,6 @@
 # Home Assistant 2026.10 / PyAV 19 test build
 
-This branch is an experimental Live View compatibility build for Home Assistant
+This change is an experimental Live View compatibility build for Home Assistant
 2026.10.0.
 
 ## Install for testing
@@ -35,8 +35,10 @@ Source: https://pypi.org/project/aiortc/1.15.0/ (wheel SHA-256
 Local smoke checks on Python 3.14 with PyAV 19.0.0 passed package import,
 peer connection construction, and VP8/H.264 frame encoding.
 
-On October 8, 2026, the branch was installed through HACS on Home Assistant
-2026.10.0 and tested with a GOAT O1000 LiDAR Pro. The integration loaded, the
+On October 8, 2026, the compatibility code was installed through HACS on Home
+Assistant 2026.10.0 and tested with a GOAT O1000 LiDAR Pro. That test branch
+also contained a separate GOAT PIN change, which is excluded from this PR.
+The integration loaded, the
 session reached `video_received`, and the camera preview displayed a frame.
 The stream was then stopped and returned to idle. The test was performed at
 night, so image quality in daylight and longer sessions remain unverified.
